@@ -40,12 +40,16 @@ def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, di
     ws = wb["一覧表"]
     style_ws = style_wb["一覧表"]
 
+    # 重要：
+    # 先に元テンプレートの結合セルを解除・クリアしてから列追加する。
+    # openpyxl は insert_cols() 後の結合セル座標を自動調整しないため、
+    # 列追加を先に行うと unmerge_cells() で KeyError が発生することがある。
+    _prepare_sheet(ws)
+
     # W:X:Y:Z（コンシステンシー）と既存AA:AB（三軸圧縮）の間に
     # 一軸圧縮用3列 AA:AC を動的に追加。既存列は右へ3列移動する。
     _insert_unconfined_columns(ws)
     _insert_unconfined_columns(style_ws)
-
-    _prepare_sheet(ws)
     hole_numbers = [h.hole_no for h in holes]
     if hole_numbers:
         holes_text = "・".join(f"No.{n}" for n in hole_numbers)

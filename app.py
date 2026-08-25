@@ -50,7 +50,7 @@ def require_password() -> None:
 
 require_password()
 st.title("室内土質試験結果 PDF → Excel")
-st.caption("バージョン：v7.1（一軸圧縮3列対応）")
+st.caption("バージョン：v7.2（一軸圧縮3列対応・結合セル修正版）")
 st.caption("JGS『土質試験結果一覧表（基礎地盤）』のPDFを、試料数に合わせた一覧表へ変換します。")
 
 with st.expander("変換ルール", expanded=False):
