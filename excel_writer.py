@@ -20,14 +20,18 @@ COLUMNS = {
     "max_size": "Q", "d50": "R", "d20": "S", "d10": "T",
     "classification_name": "U", "classification_symbol": "V",
     "liquid_limit": "W", "plastic_limit": "X", "plasticity_index": "Y",
-    "consistency_index": "Z", "cu": "AA", "phi_u": "AB", "pc": "AC", "cc": "AD",
+    "consistency_index": "Z",
+    "qu1": "AA", "qu2": "AB", "qu3": "AC",
+    "cu": "AD", "phi_u": "AE", "pc": "AF", "cc": "AG",
 }
 
 HEADER_MERGES = [
     "B{r}:B{r2}", "C{r}:C{r2}", "D{r}:D{r2}", "E{r}:E{r2}",
-    "L{r}:T{r}", "U{r}:V{r}", "W{r}:Z{r}", "AA{r}:AB{r}",
+    "L{r}:T{r}", "U{r}:V{r}", "W{r}:Z{r}",
+    "AA{r}:AC{r}", "AA{r2}:AC{r2}", "AD{r}:AE{r}",
 ]
-# E（採取深度）は見本どおり2段縦結合。AC/ADのみ2段目に単位を表示。
+# E（採取深度）は見本どおり2段縦結合。
+# AA:AC は一軸圧縮の3入力列。AF/AG は Pc/Cc の単位行。
 
 
 def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, dict]:
@@ -35,6 +39,11 @@ def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, di
     style_wb = load_workbook(template_path)
     ws = wb["一覧表"]
     style_ws = style_wb["一覧表"]
+
+    # W:X:Y:Z（コンシステンシー）と既存AA:AB（三軸圧縮）の間に
+    # 一軸圧縮用3列 AA:AC を動的に追加。既存列は右へ3列移動する。
+    _insert_unconfined_columns(ws)
+    _insert_unconfined_columns(style_ws)
 
     _prepare_sheet(ws)
     hole_numbers = [h.hole_no for h in holes]
@@ -49,7 +58,7 @@ def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, di
         data_start = current_row + 2
         for offset, sample in enumerate(hole.samples):
             row = data_start + offset
-            _copy_row_style(style_ws, 6, ws, row, 2, 30)
+            _copy_row_style(style_ws, 6, ws, row, 2, 33)
             _write_sample(ws, row, sample)
             _normalize_data_row_borders(ws, row)
             row_map[(hole.hole_no, sample.sample_no)] = row
@@ -72,7 +81,7 @@ def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, di
         current_row = data_end + 1
         if hole_index < len(holes) - 1:
             # 各No.の間は完全な空白行を1行だけ。
-            _clear_row(ws, current_row, 2, 30)
+            _clear_row(ws, current_row, 2, 33)
             current_row += 1
 
     # 余計な旧データは削除して、必要な高さだけにする。
@@ -88,6 +97,19 @@ def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, di
     wb.save(out)
     return out.getvalue(), {"row_map": row_map, "last_row": current_row - 1}
 
+
+
+
+def _insert_unconfined_columns(ws):
+    """Z列の後に一軸圧縮用3列を追加し、既存AA:ADを右へ送る。"""
+    ws.insert_cols(27, amount=3)
+
+    # 新AA:ACの幅は入力値が見やすい程度に統一。
+    for col in ("AA", "AB", "AC"):
+        ws.column_dimensions[col].width = 12
+
+    # 新列の基本書式は隣接する既存データ列（Z/AD）を参考に設定。
+    # 実際の行スタイルは _copy_row_style と _write_header で上書きされる。
 
 
 def _remove_all_bold(ws):
@@ -106,7 +128,7 @@ def _normalize_data_row_borders(ws, row: int):
     """各試料の横区切りはhairlineにする。No.ブロック外枠は別処理で強調する。"""
     separator = Side(style="hair", color="000000")
     # B/Cは孔番・地層記号の縦結合に使うため、データ本体 D:AD を対象にする。
-    for c in range(4, 31):
+    for c in range(4, 34):
         cell = ws.cell(row, c)
         b = copy.copy(cell.border)
         cell.border = Border(
@@ -123,7 +145,7 @@ def _prepare_sheet(ws):
         if merged.max_row >= 4 and merged.min_col <= 30 and merged.max_col >= 2:
             ws.unmerge_cells(str(merged))
     # 既存内容を削除。タイトル/列幅/印刷設定等は保持。
-    for row in ws.iter_rows(min_row=4, max_row=ws.max_row, min_col=2, max_col=30):
+    for row in ws.iter_rows(min_row=4, max_row=ws.max_row, min_col=2, max_col=33):
         for cell in row:
             if not isinstance(cell, MergedCell):
                 cell.value = None
@@ -132,17 +154,24 @@ def _prepare_sheet(ws):
 def _write_header(ws, style_ws, row: int):
     _copy_row_style(style_ws, 4, ws, row, 2, 30)
     _copy_row_style(style_ws, 5, ws, row + 1, 2, 30)
-    for c in range(2, 31):
+    for c in range(2, 34):
         ws.cell(row, c).value = style_ws.cell(4, c).value
         ws.cell(row + 1, c).value = style_ws.cell(5, c).value
     # 元見本では縦結合の影響で実ファイル上の2段目値が欠落する場合があるため、
     # 実務上必要な単位は明示的に復元する。
     # 採取深度の下段には線・単位を追加しない。E列はヘッダー2段を縦結合。
     ws.cell(row + 1, 5).value = None
-    ws.cell(row + 1, 29).value = "Pc（kN/㎡）"
-    ws.cell(row + 1, 30).value = "Cc（－）"
-    # AC/ADの単位セルは余分なスペースなし・太字なし。
-    for c in (29, 30):
+    ws.cell(row + 1, 32).value = "Pc（kN/㎡）"
+    ws.cell(row + 1, 33).value = "Cc（－）"
+    # 一軸圧縮：上段はAA:ACをまとめて「一軸圧縮」、
+    # 下段もAA:ACをまとめて指定表記を表示。データ行は3列を独立入力する。
+    ws.cell(row, 27).value = "一軸圧縮"
+    ws.cell(row + 1, 27).value = "一軸圧縮強さqu (kN/m)"
+    # 三軸圧縮は追加列の右側 AD:AE に移動。
+    ws.cell(row, 30).value = "三軸圧縮（UU）"
+
+    # AF/AGの単位セルは余分なスペースなし・太字なし。
+    for c in (32, 33):
         font = copy.copy(ws.cell(row + 1, c).font)
         font.bold = False
         ws.cell(row + 1, c).font = font
@@ -150,7 +179,7 @@ def _write_header(ws, style_ws, row: int):
         ws.merge_cells(fmt.format(r=row, r2=row + 1))
     # 各No.の項目欄直下は太線に統一する。
     header_bottom = Side(style="medium", color="000000")
-    for c in range(2, 31):
+    for c in range(2, 34):
         cell = ws.cell(row + 1, c)
         b = copy.copy(cell.border)
         cell.border = Border(
@@ -185,7 +214,8 @@ def _write_sample(ws, row: int, s: Sample):
     direct = [
         "wet_density", "dry_density", "particle_density", "water_content", "void_ratio", "saturation",
         "gravel", "sand", "max_size", "d50", "d20", "d10", "liquid_limit", "plastic_limit",
-        "plasticity_index", "consistency_index", "cu", "phi_u", "pc", "cc",
+        "plasticity_index", "consistency_index", "qu1", "qu2", "qu3",
+        "cu", "phi_u", "pc", "cc",
     ]
     for field in direct:
         _set_number_or_blank(ws[COLUMNS[field] + str(row)], getattr(s, field))
@@ -231,7 +261,7 @@ def _emphasize_block(ws, header_row: int, data_end: int):
         return
     medium = Side(style="medium", color="000000")
     # 上端・下端のみ中太線。内部はテンプレートの罫線を維持。
-    for c in range(2, 31):
+    for c in range(2, 34):
         top_cell = ws.cell(header_row, c)
         b = copy.copy(top_cell.border)
         top_cell.border = Border(left=b.left, right=b.right, top=medium, bottom=b.bottom)

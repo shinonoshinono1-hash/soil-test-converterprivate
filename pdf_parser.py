@@ -27,6 +27,10 @@ Y = {
     "plastic_limit": 375.9,
     "plasticity_index": 390.1,
     "consistency_index": 404.4,
+    # 一軸圧縮強さ qu。同一採取深度で最大3供試体を想定。
+    "qu1": 531.9,
+    "qu2": 546.1,
+    "qu3": 560.3,
     "cc": 475.2,
     "pc": 489.3,
     "cu": 602.7,

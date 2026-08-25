@@ -31,6 +31,9 @@ class Sample:
     plastic_limit: Optional[str] = None
     plasticity_index: Optional[str] = None
     consistency_index: Optional[str] = None
+    qu1: Optional[str] = None
+    qu2: Optional[str] = None
+    qu3: Optional[str] = None
     cu: Optional[str] = None
     phi_u: Optional[str] = None
     pc: Optional[str] = None

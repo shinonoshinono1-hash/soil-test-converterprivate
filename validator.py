@@ -14,7 +14,7 @@ CHECK_FIELDS = [
     "sample_no", "depth", "wet_density", "dry_density", "particle_density", "water_content",
     "void_ratio", "saturation", "gravel", "sand", "silt", "clay", "fc", "max_size", "d50", "d20", "d10",
     "classification_name", "classification_symbol", "liquid_limit", "plastic_limit", "plasticity_index",
-    "consistency_index", "cu", "phi_u", "pc", "cc",
+    "consistency_index", "qu1", "qu2", "qu3", "cu", "phi_u", "pc", "cc",
 ]
 
 
@@ -60,6 +60,9 @@ def validate_generated(xlsx_bytes: bytes, holes: list[Hole], row_map: dict) -> l
                 "plastic_limit": s.plastic_limit,
                 "plasticity_index": s.plasticity_index,
                 "consistency_index": s.consistency_index,
+                "qu1": s.qu1,
+                "qu2": s.qu2,
+                "qu3": s.qu3,
                 "cu": s.cu,
                 "phi_u": s.phi_u,
                 "pc": s.pc,
