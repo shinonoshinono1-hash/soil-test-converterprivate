@@ -108,10 +108,9 @@ def _insert_unconfined_columns(ws):
     """Z列の後に一軸圧縮用3列を追加し、既存表の書式を崩さずAA:ACを作る。"""
     ws.insert_cols(27, amount=3)
 
-    # 挿入前のAA/AB（三軸圧縮）は、挿入後はAD/AEへ移動している。
-    # 新AA:ACはその既存列の幅・フォント・配置・罫線・表示形式を複製し、
-    # テンプレート全体の見た目を維持する。
-    source_cols = {27: 30, 28: 31, 29: 30}  # AA<-AD, AB<-AE, AC<-AD
+    # 新AA:ACはコンシステンシー（W:Y）と同じ列幅・書式を複製し、
+    # 既存表と同じコンパクトなセルサイズにする。
+    source_cols = {27: 23, 28: 24, 29: 25}  # AA<-W, AB<-X, AC<-Y（コンシステンシーと同じ列幅）
     for dst_col, src_col in source_cols.items():
         dst_letter = ws.cell(1, dst_col).column_letter
         src_letter = ws.cell(1, src_col).column_letter
@@ -268,6 +267,13 @@ def _write_sample(ws, row: int, s: Sample):
         _set_number_or_blank(ws[f"N{row}"], s.silt)
         _set_number_or_blank(ws[f"O{row}"], s.clay)
         _set_number_or_blank(ws[f"P{row}"], s.fc)
+
+        # 粘土分（O列）の数値は、他の粒度項目と同じ通常ウェイトに固定する。
+        clay_cell = ws[f"O{row}"]
+        clay_font = copy.copy(clay_cell.font)
+        clay_font.b = False
+        clay_font.bold = False
+        clay_cell.font = clay_font
 
 
 def _set_number_or_blank(cell, raw: str | None):
