@@ -105,15 +105,27 @@ def build_excel(holes: list[Hole], template_path: str | Path) -> tuple[bytes, di
 
 
 def _insert_unconfined_columns(ws):
-    """Z列の後に一軸圧縮用3列を追加し、既存AA:ADを右へ送る。"""
+    """Z列の後に一軸圧縮用3列を追加し、既存表の書式を崩さずAA:ACを作る。"""
     ws.insert_cols(27, amount=3)
 
-    # 新AA:ACの幅は入力値が見やすい程度に統一。
-    for col in ("AA", "AB", "AC"):
-        ws.column_dimensions[col].width = 12
-
-    # 新列の基本書式は隣接する既存データ列（Z/AD）を参考に設定。
-    # 実際の行スタイルは _copy_row_style と _write_header で上書きされる。
+    # 挿入前のAA/AB（三軸圧縮）は、挿入後はAD/AEへ移動している。
+    # 新AA:ACはその既存列の幅・フォント・配置・罫線・表示形式を複製し、
+    # テンプレート全体の見た目を維持する。
+    source_cols = {27: 30, 28: 31, 29: 30}  # AA<-AD, AB<-AE, AC<-AD
+    for dst_col, src_col in source_cols.items():
+        dst_letter = ws.cell(1, dst_col).column_letter
+        src_letter = ws.cell(1, src_col).column_letter
+        ws.column_dimensions[dst_letter].width = ws.column_dimensions[src_letter].width
+        for r in range(1, ws.max_row + 1):
+            src = ws.cell(r, src_col)
+            dst = ws.cell(r, dst_col)
+            dst._style = copy.copy(src._style)
+            dst.font = copy.copy(src.font)
+            dst.fill = copy.copy(src.fill)
+            dst.border = copy.copy(src.border)
+            dst.alignment = copy.copy(src.alignment)
+            dst.protection = copy.copy(src.protection)
+            dst.number_format = src.number_format
 
 
 def _remove_all_bold(ws):
@@ -156,8 +168,8 @@ def _prepare_sheet(ws):
 
 
 def _write_header(ws, style_ws, row: int):
-    _copy_row_style(style_ws, 4, ws, row, 2, 30)
-    _copy_row_style(style_ws, 5, ws, row + 1, 2, 30)
+    _copy_row_style(style_ws, 4, ws, row, 2, 33)
+    _copy_row_style(style_ws, 5, ws, row + 1, 2, 33)
     for c in range(2, 34):
         ws.cell(row, c).value = style_ws.cell(4, c).value
         ws.cell(row + 1, c).value = style_ws.cell(5, c).value
@@ -165,10 +177,31 @@ def _write_header(ws, style_ws, row: int):
     # 実務上必要な単位は明示的に復元する。
     # 採取深度の下段には線・単位を追加しない。E列はヘッダー2段を縦結合。
     ws.cell(row + 1, 5).value = None
+    # Pc/Cc の下段も、既存表と同じ細字・中央揃え・罫線に統一する。
+    for target_col, source_col in ((32, 30), (33, 31)):
+        src = ws.cell(row + 1, source_col)
+        dst = ws.cell(row + 1, target_col)
+        dst._style = copy.copy(src._style)
+        dst.font = copy.copy(src.font)
+        dst.fill = copy.copy(src.fill)
+        dst.border = copy.copy(src.border)
+        dst.alignment = copy.copy(src.alignment)
+        dst.protection = copy.copy(src.protection)
+        dst.number_format = src.number_format
     ws.cell(row + 1, 32).value = "Pc（kN/㎡）"
     ws.cell(row + 1, 33).value = "Cc（－）"
-    # 一軸圧縮：上段はAA:ACをまとめて「一軸圧縮」、
-    # 下段もAA:ACをまとめて指定表記を表示。データ行は3列を独立入力する。
+    # 一軸圧縮：上段・下段ともAA:ACを横結合し、既存表と同じ書式に統一。
+    # 見出しの書式は直前のコンシステンシー見出し（W列）を基準にする。
+    for target_row, source_col in ((row, 23), (row + 1, 23)):
+        src = ws.cell(target_row, source_col)
+        dst = ws.cell(target_row, 27)
+        dst._style = copy.copy(src._style)
+        dst.font = copy.copy(src.font)
+        dst.fill = copy.copy(src.fill)
+        dst.border = copy.copy(src.border)
+        dst.alignment = copy.copy(src.alignment)
+        dst.protection = copy.copy(src.protection)
+        dst.number_format = src.number_format
     ws.cell(row, 27).value = "一軸圧縮"
     ws.cell(row + 1, 27).value = "一軸圧縮強さqu (kN/m)"
     # 三軸圧縮は追加列の右側 AD:AE に移動。
